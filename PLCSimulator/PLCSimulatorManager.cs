@@ -26,19 +26,30 @@ namespace PLCSimulator
         {
             addressValues = new Dictionary<string, double>();
 
-            // TODO: dodati adrese
-            // AI
+            // ANALOG INPUTS
             addressValues.Add("ADDR001", 0);
+            addressValues.Add("ADDR002", 0);
+            addressValues.Add("ADDR003", 0);
+            addressValues.Add("ADDR004", 0);
 
-            // AO
+            // ANALOG OUTPUTS
             addressValues.Add("ADDR005", 0);
+            addressValues.Add("ADDR006", 0);
+            addressValues.Add("ADDR007", 0);
+            addressValues.Add("ADDR008", 0);
 
-            // DI
+            // DIGITAL INPUTS
             addressValues.Add("ADDR009", 0);
+            addressValues.Add("ADDR011", 0);
+            addressValues.Add("ADDR012", 0);
+            addressValues.Add("ADDR013", 0);
 
-            // DO
+            // DIGITAL OUTPUTS
             addressValues.Add("ADDR010", 0);
- 
+            addressValues.Add("ADDR014", 0);
+            addressValues.Add("ADDR015", 0);
+            addressValues.Add("ADDR016", 0);
+
         }
 
         public void StartPLCSimulator()

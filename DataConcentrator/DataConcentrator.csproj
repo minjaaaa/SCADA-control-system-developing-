@@ -52,6 +52,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ContextClass.cs" />
+    <Compile Include="Model\ActivatedAlarm.cs" />
+    <Compile Include="Model\Alarm.cs" />
     <Compile Include="Model\AnalogInput.cs" />
     <Compile Include="Model\AnalogOutput.cs" />
     <Compile Include="Model\DigitalInput.cs" />

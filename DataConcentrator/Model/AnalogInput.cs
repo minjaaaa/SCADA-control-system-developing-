@@ -2,7 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+//using static System.Net.Mime.MediaTypeNames;
+//using System.Windows;
 
 namespace DataConcentrator.Model
 {
@@ -25,5 +28,72 @@ namespace DataConcentrator.Model
         public double Hysteresis { get { return hysteresis; } set { hysteresis = value; OnPropertyChanged("Hysteresis"); } }
 
         // Alarmi ce biti dodati kasnije kada napravimo klasu Alarm
+        public event Action<string> AlarmActivated;
+
+        private bool keepScanning;
+
+        public void StartScan()
+        {
+            // Ako je korisnik čekirao "Scan On", pokrećemo tred
+            if (IsScanOn)
+            {
+                keepScanning = true;
+                Thread scanThread = new Thread(ScanLoop);
+                scanThread.IsBackground = true; // Da bi se tred ugasio kada se ugasi aplikacija
+
+                // Čuvamo tred u PLC rečniku iz kostura
+                PLC.tagThreads[this.Name] = scanThread;
+                scanThread.Start();
+            }
+        }
+
+        public void StopScan()
+        {
+            keepScanning = false;
+            // Prekidamo tred ako postoji u rečniku
+            if (PLC.tagThreads.ContainsKey(this.Name))
+            {
+                Thread threadToStop = PLC.tagThreads[this.Name];
+                if (threadToStop != null && threadToStop.IsAlive)
+                {
+                    threadToStop.Abort();
+                }
+                PLC.tagThreads.Remove(this.Name);
+            }
+        }
+
+        private void ScanLoop()
+        {
+            while (keepScanning)
+            {
+                // 1. Očitavanje vrednosti sa PLC-a za zadatu I/O adresu
+                double currentValue = PLC.Instance.GetAnalogValue(this.IOAddress);
+
+                List<Alarm> tagAlarms = new List<Alarm>();
+
+                // 2. Bezbedno čitanje iz baze pozadinskog treda koristeći lock
+                // Ovo sprečava da se glavna nit i ova nit sudare prilikom pristupa bazi
+                lock (ContextClass.Instance)
+                {
+                    tagAlarms = ContextClass.Instance.Alarms.Where(a => a.TagName == this.Name).ToList();
+                }
+
+                // 3. Provera da li je vrednost prešla granice alarma
+                foreach (var alarm in tagAlarms)
+                {
+                    if (alarm.Type == AlarmType.HIGH && currentValue > alarm.Limit)
+                    {
+                        AlarmActivated?.Invoke(alarm.Name);
+                    }
+                    else if (alarm.Type == AlarmType.LOW && currentValue < alarm.Limit)
+                    {
+                        AlarmActivated?.Invoke(alarm.Name);
+                    }
+                }
+
+                // 4. Uspavljivanje treda na ScanTime sekundi
+                Thread.Sleep((int)(ScanTime * 1000));
+            }
+        }
     }
 }
