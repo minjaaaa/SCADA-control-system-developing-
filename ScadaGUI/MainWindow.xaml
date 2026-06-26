@@ -6,13 +6,19 @@
         xmlns:local="clr-namespace:ScadaGUI"
         mc:Ignorable="d"
         Title="SCADA Application" Height="450" Width="800" 
-        Closing="Window_Closing">
-    <Grid>
+        Closing="Window_Closing" Loaded="Window_Loaded">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
+        <DataGrid x:Name="dataGridTags" Grid.Row="0" AutoGenerateColumns="True" 
+                  IsReadOnly="True" SelectionMode="Single" Margin="0,0,0,10"/>
 
-        <Button Content="Add tag" Grid.Row="1" HorizontalAlignment="Left" 
-                VerticalAlignment="Bottom" Height="30" Width="150" Margin="15"/>
-
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Left">
+            <Button Content="Dodaj tag" Click="AddTag_Click" Height="30" Width="150" Margin="0,0,10,0"/>
+            <Button Content="Ukloni izabrani tag" Click="RemoveTag_Click" Height="30" Width="150"/>
+        </StackPanel>
     </Grid>
-
 </Window>

@@ -52,6 +52,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ContextClass.cs" />
+    <Compile Include="Model\AnalogInput.cs" />
+    <Compile Include="Model\AnalogOutput.cs" />
+    <Compile Include="Model\DigitalInput.cs" />
+    <Compile Include="Model\DigitalOutput.cs" />
     <Compile Include="PLC.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Model\Tag.cs" />

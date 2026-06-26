@@ -8,50 +8,36 @@ using System.Threading.Tasks;
 
 namespace DataConcentrator
 {
-    // napraviti AnalogInput, AnalogOuput, DigitalInput i 
-    // DigitalOutput klase koje nasledjuju Tag klasu
-    public class Tag : INotifyPropertyChanged
+    public abstract class Tag : INotifyPropertyChanged
     {
-       
         private string name;
-
         private string description;
-
-
-        #region Properties
+        private string ioAddress;
 
         [Key]
         public string Name
         {
             get { return name; }
-            set
-            {
-                name = value;
-                OnPropertyChanged("Name");
-            }
+            set { name = value; OnPropertyChanged("Name"); }
         }
 
         public string Description
         {
             get { return description; }
-            set
-            {
-                description = value;
-                OnPropertyChanged("Description");
-            }
+            set { description = value; OnPropertyChanged("Description"); }
         }
 
-        #endregion
-
-        #region INotifyPropertyChanged Members
+        public string IOAddress
+        {
+            get { return ioAddress; }
+            set { ioAddress = value; OnPropertyChanged("IOAddress"); }
+        }
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public void OnPropertyChanged(string property)
+        protected void OnPropertyChanged(string property)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
         }
-
-        #endregion
     }
 }
