@@ -31,7 +31,8 @@
             <Button Content="Dodaj tag" Click="AddTag_Click" Height="30" Width="130" Margin="0,0,10,0"/>
             <Button Content="Ukloni izabrani tag" Click="RemoveTag_Click" Height="30" Width="130" Margin="0,0,10,0"/>
             <Button Content="Dodaj alarm" Click="AddAlarm_Click" Height="30" Width="130" Margin="0,0,10,0"/>
-            <Button Content="Potvrdi alarm (ACK)" Click="AcknowledgeAlarm_Click" Height="30" Width="140"/>
+            <Button Content="Potvrdi alarm (ACK)" Click="AcknowledgeAlarm_Click" Height="30" Width="140" Margin="0,0,10,0"/>
+            <Button Content="Izveštaji i Filteri" Click="OpenFilter_Click" Height="30" Width="130" Margin="0,0,10,0"/>
         </StackPanel>
     </Grid>
 </Window>

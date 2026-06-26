@@ -66,16 +66,26 @@ namespace DataConcentrator.Model
         {
             while (keepScanning)
             {
-                // 1. Očitavanje vrednosti sa PLC-a za zadatu I/O adresu
+                // 1. Očitavanje vrednosti sa PLC-a
                 double currentValue = PLC.Instance.GetAnalogValue(this.IOAddress);
 
                 List<Alarm> tagAlarms = new List<Alarm>();
 
-                // 2. Bezbedno čitanje iz baze pozadinskog treda koristeći lock
-                // Ovo sprečava da se glavna nit i ova nit sudare prilikom pristupa bazi
+                // 2. Bezbedno čitanje alarma i UPIS ISTORIJE u bazu
                 lock (ContextClass.Instance)
                 {
+                    // Čitanje alarma
                     tagAlarms = ContextClass.Instance.Alarms.Where(a => a.TagName == this.Name).ToList();
+
+                    // NOVO: Beleženje očitane vrednosti u bazu za kasnijie filtriranje
+                    TagValue newRecord = new TagValue
+                    {
+                        TagName = this.Name,
+                        Value = currentValue,
+                        Timestamp = DateTime.Now
+                    };
+                    ContextClass.Instance.TagValues.Add(newRecord);
+                    ContextClass.Instance.SaveChanges();
                 }
 
                 // 3. Provera da li je vrednost prešla granice alarma

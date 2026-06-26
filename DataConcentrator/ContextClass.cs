@@ -35,5 +35,7 @@ namespace DataConcentrator
 
         public DbSet<ActivatedAlarm> ActivatedAlarms { get; set; }
 
+        //tabela za istoriju vrednosti tagova (za svaki tag se beleži vreme i vrednost)
+        public DbSet<TagValue> TagValues { get; set; }
     }
 }

@@ -24,6 +24,12 @@ namespace ScadaGUI
              }
         }
 
+        private void OpenFilter_Click(object sender, RoutedEventArgs e)
+        {
+            FilterWindow filterWindow = new FilterWindow();
+            filterWindow.ShowDialog();
+        }
+
         // --- DEO KOJI SMO MI DODALI ZA TABELU I DUGMAD ---
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
