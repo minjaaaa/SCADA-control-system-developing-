@@ -7,6 +7,9 @@ using System.Windows.Threading; // Potrebno za DispatcherPriority
 using DataConcentrator;
 using DataConcentrator.Model; 
 using PLCSimulator;
+using Newtonsoft.Json;
+using Microsoft.Win32;
+using System.IO;
 
 namespace ScadaGUI
 {
@@ -73,15 +76,19 @@ namespace ScadaGUI
                 {
                     try
                     {
-                        var tagToRemove = ContextClass.Instance.Tags.Find(selectedTag.Name);
-                        if (tagToRemove != null)
-                        {
-                            ContextClass.Instance.Tags.Remove(tagToRemove);
-                            ContextClass.Instance.SaveChanges();
+                        // 1. OBAVEZNO ZAUSTAVLJANJE NITI PRE BRISANJA IZ BAZE
+                        if (selectedTag is AnalogInput ai) ai.StopScan();
+                        else if (selectedTag is DigitalInput di) di.StopScan();
 
-                            MessageBox.Show("Tag je uspešno obrisan.", "Uspeh", MessageBoxButton.OK, MessageBoxImage.Information);
-                            RefreshDataGrid();
+                        // 2. BEZBEDNO BRISANJE UZ ZAKLJUČAVANJE (LOCK)
+                        lock (ContextClass.Instance)
+                        {
+                            ContextClass.Instance.Tags.Remove(selectedTag);
+                            ContextClass.Instance.SaveChanges();
                         }
+
+                        RefreshDataGrid();
+                        Logger.Log($"Obrisan tag: {selectedTag.Name}", LogCategory.TagManagement);
                     }
                     catch (Exception ex)
                     {
@@ -163,6 +170,7 @@ namespace ScadaGUI
                     }
 
                     ContextClass.Instance.SaveChanges();
+                    Logger.Log($"Alarm potvrđen: {ai.Name}", LogCategory.Alarms);
                     RefreshDataGrid(); // Ovo će automatski prebojiti red u žuto!
 
                     MessageBox.Show("Alarm je uspešno potvrđen (Acknowledged).", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -212,9 +220,99 @@ namespace ScadaGUI
                      ActivatedAlarm alarm = new ActivatedAlarm(ContextClass.Instance.Alarms.Find(alarmName));
                      ContextClass.Instance.ActivatedAlarms.Add(alarm);
                      ContextClass.Instance.SaveChanges();
-
+                     Logger.Log($"Alarm aktiviran: {alarmName}", LogCategory.Alarms);
                      RefreshDataGrid();
                  }));
          }
+        private void OpenLogs_Click(object sender, RoutedEventArgs e)
+        {
+            LogSettingsWindow logWindow = new LogSettingsWindow();
+            logWindow.ShowDialog();
+        }
+
+        private void ExportJson_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Nameštanje TypeNameHandling.Auto je KLJUČNO! Ono čuva informaciju da li je tag AI, AO, itd.
+                var settings = new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.Auto, Formatting = Formatting.Indented };
+
+                var allTags = ContextClass.Instance.Tags.ToList();
+                string json = JsonConvert.SerializeObject(allTags, settings);
+
+                SaveFileDialog saveFileDialog = new SaveFileDialog { Filter = "JSON files (*.json)|*.json" };
+                if (saveFileDialog.ShowDialog() == true)
+                {
+                    File.WriteAllText(saveFileDialog.FileName, json);
+                    MessageBox.Show("Konfiguracija uspešno eksportovana!", "Uspeh", MessageBoxButton.OK, MessageBoxImage.Information);
+                    Logger.Log("Izvršen JSON export tagova.", LogCategory.ImportExport);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Greška pri eksportu: {ex.Message}", "Greška", MessageBoxButton.OK, MessageBoxImage.Error);
+                Logger.Log($"Greška pri eksportu: {ex.Message}", LogCategory.Errors);
+            }
+        }
+
+        private void ImportJson_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                OpenFileDialog openFileDialog = new OpenFileDialog { Filter = "JSON files (*.json)|*.json" };
+                if (openFileDialog.ShowDialog() == true)
+                {
+                    string json = File.ReadAllText(openFileDialog.FileName);
+                    var settings = new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.Auto };
+
+                    var importedTags = JsonConvert.DeserializeObject<List<Tag>>(json, settings);
+
+                    if (importedTags != null)
+                    {
+                        // 1. OBAVEZNO ZAUSTAVLJANJE STARIH NITI PRE BRISANJA
+                        foreach (var oldTag in ContextClass.Instance.Tags)
+                        {
+                            if (oldTag is AnalogInput oldAi) oldAi.StopScan();
+                            else if (oldTag is DigitalInput oldDi) oldDi.StopScan();
+                        }
+                        // Dajemo pozadinskim nitima pola sekunde da bezbedno završe posao i izađu iz petlje
+                        System.Threading.Thread.Sleep(500);
+                        // Baza mora biti zaštićena od paralelnih pristupa, pa koristimo lock
+                        lock (ContextClass.Instance)
+                        { 
+                            // 2. Brisanje starih tagova
+                            ContextClass.Instance.Tags.RemoveRange(ContextClass.Instance.Tags);
+                            ContextClass.Instance.SaveChanges();
+
+                            // 3. Dodavanje novih (importovanih)
+                            ContextClass.Instance.Tags.AddRange(importedTags);
+                            ContextClass.Instance.SaveChanges();
+                        }   
+                        // 4. POKRETANJE NOVIH NITI I POVEZIVANJE ALARMA
+                        foreach (var newTag in ContextClass.Instance.Tags)
+                        {
+                            if (newTag is AnalogInput ai)
+                            {
+                                ai.AlarmActivated += OnAlarmActivated;
+                                ai.StartScan();
+                            }
+                            else if (newTag is DigitalInput di)
+                            {
+                                di.StartScan();
+                            }
+                        }
+
+                        RefreshDataGrid();
+                        MessageBox.Show("Konfiguracija uspešno importovana i novi tagovi su pokrenuti!", "Uspeh", MessageBoxButton.OK, MessageBoxImage.Information);
+                        Logger.Log("Izvršen JSON import tagova.", LogCategory.ImportExport);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Greška pri importu: {ex.Message}", "Greška", MessageBoxButton.OK, MessageBoxImage.Error);
+                Logger.Log($"Greška pri importu: {ex.Message}", LogCategory.Errors);
+            }
+        }
     }
 }

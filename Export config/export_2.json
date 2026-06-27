@@ -1,0 +1,44 @@
+[
+  {
+    "$type": "DataConcentrator.Model.AnalogInput, DataConcentrator",
+    "ScanTime": 2.0,
+    "IsScanOn": true,
+    "LowLimit": 50.0,
+    "HighLimit": 300.0,
+    "Units": "m",
+    "Deadband": 1.0,
+    "Hysteresis": 2.0,
+    "Name": "Nivo_Akumulacije",
+    "AlarmStatus": "Normal",
+    "Description": "Nivo vode u jezeru",
+    "IOAddress": "ADDR001"
+  },
+  {
+    "$type": "DataConcentrator.Model.AnalogInput, DataConcentrator",
+    "ScanTime": 1.0,
+    "IsScanOn": true,
+    "LowLimit": 0.0,
+    "HighLimit": 150.0,
+    "Units": "m3/s",
+    "Deadband": 2.0,
+    "Hysteresis": 5.0,
+    "Name": "Protok_Vode",
+    "AlarmStatus": "Normal",
+    "Description": "Protok vode kroz potisni cevovod",
+    "IOAddress": "ADDR002"
+  },
+  {
+    "$type": "DataConcentrator.Model.AnalogInput, DataConcentrator",
+    "ScanTime": 3.0,
+    "IsScanOn": true,
+    "LowLimit": 20.0,
+    "HighLimit": 95.0,
+    "Units": "C",
+    "Deadband": 0.5,
+    "Hysteresis": 1.0,
+    "Name": "Temp_Generatora",
+    "AlarmStatus": "Normal",
+    "Description": "Temperatura namotaja glavnog generatora",
+    "IOAddress": "ADDR003"
+  }
+]

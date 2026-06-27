@@ -33,7 +33,7 @@ namespace ScadaGUI
         private void LoadTags()
         {
             // Prikazujemo samo AI tagove, a dodajemo i "Praznu" opciju na vrh ako korisnik ne želi da filtrira po tagu
-            var aiTags = ContextClass.Instance.Tags.OfType<AnalogInput>().Cast<Tag>().ToList();
+            var aiTags = ContextClass.Instance.Tags.ToList().OfType<AnalogInput>().Cast<Tag>().ToList();
             aiTags.Insert(0, new AnalogInput { Name = "--- Svi Tagovi ---" });
             cmbTags.ItemsSource = aiTags;
             cmbTags.SelectedIndex = 0;
@@ -132,7 +132,7 @@ namespace ScadaGUI
                 // Javljamo korisniku i pravimo log (ako je Logger klasa implementirana)
                 MessageBox.Show($"Izveštaj je uspešno sačuvan u fajl: {filePath}\n(Fajl se nalazi u bin/Debug folderu projekta)", "Uspeh", MessageBoxButton.OK, MessageBoxImage.Information);
 
-                Logger.Log("Korisnik je generisao TXT izveštaj sa " + filteredResults.Count + " redova.");
+                Logger.Log("Korisnik je generisao TXT izveštaj sa " + filteredResults.Count + " redova.", LogCategory.ImportExport);
             }
             catch (Exception ex)
             {

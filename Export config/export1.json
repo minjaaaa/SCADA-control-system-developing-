@@ -1,0 +1,16 @@
+[
+  {
+    "$type": "DataConcentrator.Model.AnalogInput, DataConcentrator",
+    "ScanTime": 2.0,
+    "IsScanOn": true,
+    "LowLimit": 0.0,
+    "HighLimit": 150.0,
+    "Units": "C",
+    "Deadband": 5.0,
+    "Hysteresis": 1.0,
+    "Name": "Temp_Motora_02",
+    "AlarmStatus": "Normal",
+    "Description": "Pomocni senzor temperature",
+    "IOAddress": "ADDR002"
+  }
+]

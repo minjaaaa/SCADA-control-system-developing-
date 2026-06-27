@@ -53,11 +53,6 @@ namespace DataConcentrator.Model
             // Prekidamo tred ako postoji u rečniku
             if (PLC.tagThreads.ContainsKey(this.Name))
             {
-                Thread threadToStop = PLC.tagThreads[this.Name];
-                if (threadToStop != null && threadToStop.IsAlive)
-                {
-                    threadToStop.Abort();
-                }
                 PLC.tagThreads.Remove(this.Name);
             }
         }
@@ -66,26 +61,36 @@ namespace DataConcentrator.Model
         {
             while (keepScanning)
             {
-                // 1. Očitavanje vrednosti sa PLC-a
+                // 1. Očitavanje vrednosti sa PLC-a za zadatu I/O adresu
                 double currentValue = PLC.Instance.GetAnalogValue(this.IOAddress);
-
                 List<Alarm> tagAlarms = new List<Alarm>();
 
-                // 2. Bezbedno čitanje alarma i UPIS ISTORIJE u bazu
-                lock (ContextClass.Instance)
+                // SIGURNOSNA MREŽA: Hvata greške ako je baza u međuvremenu obrisala tag
+                try
                 {
-                    // Čitanje alarma
-                    tagAlarms = ContextClass.Instance.Alarms.Where(a => a.TagName == this.Name).ToList();
-
-                    // NOVO: Beleženje očitane vrednosti u bazu za kasnijie filtriranje
-                    TagValue newRecord = new TagValue
+                    // 2. Bezbedno čitanje alarma i UPIS ISTORIJE u bazu
+                    lock (ContextClass.Instance)
                     {
-                        TagName = this.Name,
-                        Value = currentValue,
-                        Timestamp = DateTime.Now
-                    };
-                    ContextClass.Instance.TagValues.Add(newRecord);
-                    ContextClass.Instance.SaveChanges();
+                        // Ako je nit u međuvremenu zaustavljena (ugašen tag), izlazi iz petlje pre upisa
+                        if (!keepScanning) break;
+
+                        tagAlarms = ContextClass.Instance.Alarms.Where(a => a.TagName == this.Name).ToList();
+
+                        TagValue newRecord = new TagValue
+                        {
+                            TagName = this.Name,
+                            Value = currentValue,
+                            Timestamp = DateTime.Now
+                        };
+                        ContextClass.Instance.TagValues.Add(newRecord);
+                        ContextClass.Instance.SaveChanges();
+                    }
+                }
+                catch (Exception)
+                {
+                    // Ako je tag obrisan iz baze, Entity Framework će baciti grešku,
+                    // mi je ovde hvatamo i tiho gasimo nit bez pucanja SCADA sistema!
+                    break;
                 }
 
                 // 3. Provera da li je vrednost prešla granice alarma

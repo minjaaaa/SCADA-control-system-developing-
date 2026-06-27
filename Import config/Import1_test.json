@@ -1,0 +1,23 @@
+[
+  {
+    "$type": "DataConcentrator.Model.AnalogInput, DataConcentrator",
+    "ScanTime": 2.0,
+    "IsScanOn": true,
+    "LowLimit": 0.0,
+    "HighLimit": 100.0,
+    "Units": "Bar",
+    "Deadband": 0.5,
+    "Hysteresis": 1.0,
+    "Name": "Pritisak_Senzor_01",
+    "Description": "Senzor pritiska u cevi",
+    "IOAddress": "ADDR001"
+  },
+  {
+    "$type": "DataConcentrator.Model.DigitalInput, DataConcentrator",
+    "ScanTime": 1.0,
+    "IsScanOn": true,
+    "Name": "Vrata_Status",
+    "Description": "Status ulaznih vrata",
+    "IOAddress": "ADDR009"
+  }
+]

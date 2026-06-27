@@ -35,11 +35,6 @@ namespace DataConcentrator.Model
             keepScanning = false;
             if (PLC.tagThreads.ContainsKey(this.Name))
             {
-                Thread threadToStop = PLC.tagThreads[this.Name];
-                if (threadToStop != null && threadToStop.IsAlive)
-                {
-                    threadToStop.Abort();
-                }
                 PLC.tagThreads.Remove(this.Name);
             }
         }
