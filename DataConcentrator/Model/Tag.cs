@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DataConcentrator.Model;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
@@ -31,6 +32,17 @@ namespace DataConcentrator
             set { alarmStatus = value; OnPropertyChanged("AlarmStatus"); }
         }
 
+        public string TagType
+        {
+            get
+            {
+                if (this is AnalogInput) return "AI";
+                if (this is AnalogOutput) return "AO";
+                if (this is DigitalInput) return "DI";
+                if (this is DigitalOutput) return "DO";
+                return "N/A";
+            }
+        }
         public string Description
         {
             get { return description; }

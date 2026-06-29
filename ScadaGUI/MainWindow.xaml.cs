@@ -15,11 +15,12 @@ namespace ScadaGUI
 {
     public partial class MainWindow : Window
     {
+        private HashSet<string> blokiraniPopupi = new HashSet<string>();
+        private HashSet<string> prikazaniProzori = new HashSet<string>();
         public MainWindow()
         {
             InitializeComponent();
 
-            // OVO OTKOMENTARIŠEMO KADA DODAMO StartScan I ALARME U AnalogInput
              foreach (AnalogInput ai in ContextClass.Instance.Tags.OfType<AnalogInput>())
              {
                  ai.AlarmActivated += OnAlarmActivated;
@@ -170,7 +171,13 @@ namespace ScadaGUI
                     }
 
                     ContextClass.Instance.SaveChanges();
+                    
+                    MessageBox.Show($"Status u bazi je sada: {ai.AlarmStatus}"); // <--- DODAJ OVO
+                    // --- KLJUČNO: Ovde resetujemo zastavicu da bi sistem opet znao da prikaže prozor sledeći put ---
+                    prikazaniProzori.Remove(ai.Name);
+
                     Logger.Log($"Alarm potvrđen: {ai.Name}", LogCategory.Alarms);
+
                     RefreshDataGrid(); // Ovo će automatski prebojiti red u žuto!
 
                     MessageBox.Show("Alarm je uspešno potvrđen (Acknowledged).", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -211,19 +218,43 @@ namespace ScadaGUI
         }
 
         // OVO OTKOMENTARIŠEMO KADA DODAMO Alarm i ActivatedAlarm KLASE
-         private void OnAlarmActivated(string alarmName)
-         {
-             Application.Current.Dispatcher.BeginInvoke(
-             DispatcherPriority.Background,
-                 new Action(() =>
-                 {
-                     ActivatedAlarm alarm = new ActivatedAlarm(ContextClass.Instance.Alarms.Find(alarmName));
-                     ContextClass.Instance.ActivatedAlarms.Add(alarm);
-                     ContextClass.Instance.SaveChanges();
-                     Logger.Log($"Alarm aktiviran: {alarmName}", LogCategory.Alarms);
-                     RefreshDataGrid();
-                 }));
-         }
+        private void OnAlarmActivated(Alarm triggeredAlarm, double currentValue, string units)
+        {
+            Application.Current.Dispatcher.BeginInvoke((Action)(() =>
+            {
+                bool trebaProzor = false;
+
+                lock (ContextClass.Instance)
+                {
+                    var tag = ContextClass.Instance.Tags.FirstOrDefault(t => t.Name == triggeredAlarm.TagName);
+
+                    // 1. Ako je status "Normal", postavljamo na "Active" i beležimo da treba prikazati prozor
+                    if (tag != null && tag.AlarmStatus == "Normal")
+                    {
+                        tag.AlarmStatus = "Active";
+                        ContextClass.Instance.SaveChanges();
+                        trebaProzor = true;
+                    }
+                }
+
+                // 2. Ako je "Normal" postao "Active", prikazujemo prozor, ali samo ako ga već nismo prikazali u ovoj sesiji
+                if (trebaProzor && !prikazaniProzori.Contains(triggeredAlarm.TagName))
+                {
+                    prikazaniProzori.Add(triggeredAlarm.TagName); // Zapamti da je prozor viđen
+
+                    RefreshDataGrid();
+                    Logger.Log($"Alarm aktiviran: {triggeredAlarm.TagName} (Vrednost: {currentValue:F2} {units})", LogCategory.Alarms);
+
+                    string upozorenje = $"🚨 KRITIČNO UPOZORENJE: ALARM AKTIVIRAN! 🚨\n\n" +
+                                        $"Senzor: {triggeredAlarm.TagName}\n" +
+                                        $"Trenutna vrednost: {currentValue:F2} {units}\n\n" +
+                                        $"Pritisnite OK da zatvorite ovo obaveštenje.";
+
+                    MessageBox.Show(upozorenje, "SCADA Alarmni Sistem", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+            }));
+        }
+
         private void OpenLogs_Click(object sender, RoutedEventArgs e)
         {
             LogSettingsWindow logWindow = new LogSettingsWindow();
@@ -267,29 +298,87 @@ namespace ScadaGUI
 
                     var importedTags = JsonConvert.DeserializeObject<List<Tag>>(json, settings);
 
-                    if (importedTags != null)
+                    if (importedTags != null && importedTags.Count > 0)
                     {
-                        // 1. OBAVEZNO ZAUSTAVLJANJE STARIH NITI PRE BRISANJA
-                        foreach (var oldTag in ContextClass.Instance.Tags)
-                        {
-                            if (oldTag is AnalogInput oldAi) oldAi.StopScan();
-                            else if (oldTag is DigitalInput oldDi) oldDi.StopScan();
-                        }
-                        // Dajemo pozadinskim nitima pola sekunde da bezbedno završe posao i izađu iz petlje
-                        System.Threading.Thread.Sleep(500);
-                        // Baza mora biti zaštićena od paralelnih pristupa, pa koristimo lock
-                        lock (ContextClass.Instance)
-                        { 
-                            // 2. Brisanje starih tagova
-                            ContextClass.Instance.Tags.RemoveRange(ContextClass.Instance.Tags);
-                            ContextClass.Instance.SaveChanges();
+                        // DOZVOLJENE ADRESE
+                        List<string> allowedAI = new List<string> { "ADDR001", "ADDR002", "ADDR003", "ADDR004" };
+                        List<string> allowedAO = new List<string> { "ADDR005", "ADDR006", "ADDR007", "ADDR008" };
+                        List<string> allowedDI = new List<string> { "ADDR009", "ADDR011", "ADDR012", "ADDR013" };
+                        List<string> allowedDO = new List<string> { "ADDR010", "ADDR014", "ADDR015", "ADDR016" };
 
-                            // 3. Dodavanje novih (importovanih)
-                            ContextClass.Instance.Tags.AddRange(importedTags);
+                        List<Tag> validTags = new List<Tag>();
+                        List<string> errorMessages = new List<string>();
+
+                        // 1. ČITANJE TRENUTNOG STANJA IZ BAZE
+                        List<string> existingNames = new List<string>();
+                        List<string> existingAddresses = new List<string>();
+
+                        lock (ContextClass.Instance)
+                        {
+                            existingNames = ContextClass.Instance.Tags.Select(t => t.Name.ToLower()).ToList();
+                            existingAddresses = ContextClass.Instance.Tags.Select(t => t.IOAddress.ToUpper()).ToList();
+                        }
+
+                        // Praćenje šta smo već obradili unutar samog JSON fajla (da sprečimo duplikate u samom fajlu)
+                        HashSet<string> currentBatchNames = new HashSet<string>();
+                        HashSet<string> currentBatchAddresses = new HashSet<string>();
+
+                        // 2. PRED-VALIDACIJA SVAKOG TAGA
+                        foreach (var tag in importedTags)
+                        {
+                            string name = tag.Name?.Trim();
+                            string lowerName = name?.ToLower();
+                            string address = tag.IOAddress?.Trim().ToUpper();
+                            bool isValidType = false;
+
+                            // A. Provera duplikata imena (ID taga)
+                            if (existingNames.Contains(lowerName) || currentBatchNames.Contains(lowerName))
+                            {
+                                errorMessages.Add($"- Tag '{name}': Tag sa ovim imenom već postoji.");
+                                continue;
+                            }
+
+                            // B. Provera konflikta adrese
+                            if (existingAddresses.Contains(address) || currentBatchAddresses.Contains(address))
+                            {
+                                errorMessages.Add($"- Tag '{name}': Adresa '{address}' je već zauzeta.");
+                                continue;
+                            }
+
+                            // C. Provera da li je adresa u dozvoljenom opsegu za taj tip
+                            if (tag is AnalogInput && allowedAI.Contains(address)) isValidType = true;
+                            else if (tag is AnalogOutput && allowedAO.Contains(address)) isValidType = true;
+                            else if (tag is DigitalInput && allowedDI.Contains(address)) isValidType = true;
+                            else if (tag is DigitalOutput && allowedDO.Contains(address)) isValidType = true;
+
+                            if (!isValidType)
+                            {
+                                errorMessages.Add($"- Tag '{name}': Adresa '{address}' nije dozvoljena za njegov tip.");
+                                continue;
+                            }
+
+                            // Ako je prošao sve provere, dodajemo ga u validne
+                            currentBatchNames.Add(lowerName);
+                            currentBatchAddresses.Add(address);
+                            validTags.Add(tag);
+                        }
+
+                        // Ako nijedan tag ne valja, prekidamo akciju
+                        if (validTags.Count == 0)
+                        {
+                            MessageBox.Show("Nijedan novi tag iz JSON fajla nije dodatan. Svi već postoje ili imaju konflikt adresa.\n\nDetalji:\n" + string.Join("\n", errorMessages), "Info o Importu", MessageBoxButton.OK, MessageBoxImage.Information);
+                            return;
+                        }
+
+                        // 3. DODAVANJE NOVIH TAGOVA U BAZU (Stari ostaju netaknuti)
+                        lock (ContextClass.Instance)
+                        {
+                            ContextClass.Instance.Tags.AddRange(validTags);
                             ContextClass.Instance.SaveChanges();
-                        }   
-                        // 4. POKRETANJE NOVIH NITI I POVEZIVANJE ALARMA
-                        foreach (var newTag in ContextClass.Instance.Tags)
+                        }
+
+                        // 4. POKRETANJE NITI SAMO ZA NOVE TAGOVE
+                        foreach (var newTag in validTags)
                         {
                             if (newTag is AnalogInput ai)
                             {
@@ -303,8 +392,19 @@ namespace ScadaGUI
                         }
 
                         RefreshDataGrid();
-                        MessageBox.Show("Konfiguracija uspešno importovana i novi tagovi su pokrenuti!", "Uspeh", MessageBoxButton.OK, MessageBoxImage.Information);
-                        Logger.Log("Izvršen JSON import tagova.", LogCategory.ImportExport);
+
+                        // 5. PRIKAZ ADEKVATNE PORUKE
+                        if (errorMessages.Count > 0)
+                        {
+                            string warnMsg = $"Uspešno dodato {validTags.Count} novih tagova.\n\nNeki tagovi su preskočeni jer već postoje ili prave konflikt:\n{string.Join("\n", errorMessages)}";
+                            MessageBox.Show(warnMsg, "Delimičan uspeh", MessageBoxButton.OK, MessageBoxImage.Warning);
+                            Logger.Log($"Delimičan JSON import. Dodato: {validTags.Count}, Preskočeno: {errorMessages.Count}.", LogCategory.ImportExport);
+                        }
+                        else
+                        {
+                            MessageBox.Show("Svi tagovi iz konfiguracije su uspešno dodati i pokrenuti!", "Uspeh", MessageBoxButton.OK, MessageBoxImage.Information);
+                            Logger.Log("Izvršen kompletan JSON import novih tagova.", LogCategory.ImportExport);
+                        }
                     }
                 }
             }
@@ -312,6 +412,83 @@ namespace ScadaGUI
             {
                 MessageBox.Show($"Greška pri importu: {ex.Message}", "Greška", MessageBoxButton.OK, MessageBoxImage.Error);
                 Logger.Log($"Greška pri importu: {ex.Message}", LogCategory.Errors);
+            }
+        }
+
+        // --- TAČKA 1: Ručni upis vrednosti (samo za AO i DO) ---
+        private void WriteValue_Click(object sender, RoutedEventArgs e)
+        {
+            if (dataGridTags.SelectedItem is Tag selectedTag)
+            {
+                if (selectedTag is AnalogInput || selectedTag is DigitalInput)
+                {
+                    MessageBox.Show("Vrednosti se mogu upisivati samo u izlazne tagove (AO i DO). Ulazi se čitaju sa senzora.", "Nije dozvoljeno", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (double.TryParse(txtManualValue.Text.Trim(), out double newValue))
+                {
+                    if (selectedTag is AnalogOutput ao)
+                    {
+                        if (newValue < ao.LowLimit || newValue > ao.HighLimit)
+                        {
+                            MessageBox.Show($"Vrednost mora biti između {ao.LowLimit} i {ao.HighLimit}.", "Greška", MessageBoxButton.OK, MessageBoxImage.Warning);
+                            return;
+                        }
+                        ao.InitialValue = newValue;
+                    }
+                    else if (selectedTag is DigitalOutput doTag)
+                    {
+                        if (newValue != 0 && newValue != 1)
+                        {
+                            MessageBox.Show("Digitalni izlaz može imati samo vrednost 0 ili 1.", "Greška", MessageBoxButton.OK, MessageBoxImage.Warning);
+                            return;
+                        }
+                        doTag.InitialValue = newValue;
+                    }
+
+                    ContextClass.Instance.SaveChanges();
+                    RefreshDataGrid();
+                    Logger.Log($"Ručno upisana vrednost {newValue} u tag {selectedTag.Name}", LogCategory.TagManagement);
+                    MessageBox.Show("Vrednost je uspešno upisana!", "Uspeh", MessageBoxButton.OK, MessageBoxImage.Information);
+                    txtManualValue.Clear();
+                }
+                else
+                {
+                    MessageBox.Show("Molimo unesite validan broj.", "Greška", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            else
+            {
+                MessageBox.Show("Molimo izaberite izlazni tag (AO ili DO) iz tabele.", "Upozorenje", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        // --- TAČKA 2: Detalji (prikaz svih alarma za izabrani AI tag) ---
+        private void ShowDetails_Click(object sender, RoutedEventArgs e)
+        {
+            if (dataGridTags.SelectedItem is AnalogInput ai)
+            {
+                var tagAlarms = ContextClass.Instance.Alarms.Where(a => a.TagName == ai.Name).ToList();
+
+                if (tagAlarms.Count == 0)
+                {
+                    MessageBox.Show($"Tag '{ai.Name}' trenutno nema definisanih alarma.", "Detalji o alarmima", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                string details = $"Alarmi vezani za tag: {ai.Name}\n";
+                details += "--------------------------------------------------\n";
+                foreach (var alarm in tagAlarms)
+                {
+                    details += $"- TIP: {alarm.Type} | GRANICA: {alarm.Limit}\n";
+                }
+
+                MessageBox.Show(details, "Detalji o alarmima", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            else
+            {
+                MessageBox.Show("Molimo izaberite Analog Input (AI) tag iz tabele za prikaz detalja.", "Upozorenje", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
     }

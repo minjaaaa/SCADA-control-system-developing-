@@ -102,10 +102,10 @@ namespace ScadaGUI
         {
             txtErrorBlock.Text = string.Empty;
 
-            // Osnovne provere za zajednička polja
+            // Osnovne provere za zajednička polja (dodato ToUpper() za adresu)
             string name = txtTagName.Text.Trim();
             string description = txtDescription.Text.Trim();
-            string ioAddress = txtIOAddress.Text.Trim();
+            string ioAddress = txtIOAddress.Text.Trim().ToUpper();
 
             if (string.IsNullOrEmpty(name))
             {
@@ -127,10 +127,61 @@ namespace ScadaGUI
             }
 
             string selectedType = (cmbTagType.SelectedItem as ComboBoxItem).Content.ToString();
+
+            // --- POČETAK NOVE VALIDACIJE ZA HARDVERSKE ADRESE ---
+
+            List<string> allowedAI = new List<string> { "ADDR001", "ADDR002", "ADDR003", "ADDR004" };
+            List<string> allowedAO = new List<string> { "ADDR005", "ADDR006", "ADDR007", "ADDR008" };
+            List<string> allowedDI = new List<string> { "ADDR009", "ADDR011", "ADDR012", "ADDR013" };
+            List<string> allowedDO = new List<string> { "ADDR010", "ADDR014", "ADDR015", "ADDR016" };
+
+            // 1. Određivanje liste dozvoljenih adresa na osnovu izabranog tipa taga
+            List<string> currentAllowedPins = new List<string>();
+            if (selectedType == "AI") currentAllowedPins = allowedAI;
+            else if (selectedType == "AO") currentAllowedPins = allowedAO;
+            else if (selectedType == "DI") currentAllowedPins = allowedDI;
+            else if (selectedType == "DO") currentAllowedPins = allowedDO;
+
+            // 2. Preuzimanje svih zauzetih adresa koje su trenutno u bazi
+            var usedAddresses = ContextClass.Instance.Tags.Select(t => t.IOAddress.ToUpper()).ToList();
+
+            // 3. Filtriranje: Nalazimo preseke - koji dozvoljeni pinovi NISU u listi zauzetih
+            var availablePins = currentAllowedPins.Where(pin => !usedAddresses.Contains(pin)).ToList();
+
+            // Formatiramo tekst za prikaz (ako je lista prazna, dajemo posebno obaveštenje)
+            string availablePinsText = availablePins.Count > 0
+                                       ? string.Join(", ", availablePins)
+                                       : "NEMA SLOBODNIH PINOVA ZA OVAJ TIP!";
+
+            // 4. Da li je uneta adresa uopšte validna za taj tip?
+            if (!currentAllowedPins.Contains(ioAddress))
+            {
+                txtErrorBlock.Text = $"I/O Adresa '{ioAddress}' nije dozvoljena za tip '{selectedType}'.";
+
+                MessageBox.Show($"Pokušali ste unos adrese '{ioAddress}' koja nije dozvoljena za tip taga {selectedType}.\n\n" +
+                                $"Dostupni (slobodni) pinovi koje možete iskoristiti su:\n{availablePinsText}",
+                                "Nevalidna Adresa", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            // 5. Da li je adresa već zauzeta od strane drugog taga?
+            if (usedAddresses.Contains(ioAddress))
+            {
+                txtErrorBlock.Text = $"Konflikt: Adresa '{ioAddress}' je već zauzeta!";
+
+                MessageBox.Show($"I/O Adresa '{ioAddress}' je validna za {selectedType}, ali je VEĆ ZAUZETA od strane drugog senzora ili aktuatora!\n\n" +
+                                $"Molimo izaberite neku od preostalih slobodnih adresa:\n{availablePinsText}",
+                                "Konflikt Adresa", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            // --- KRAJ NOVE VALIDACIJE ---
+
             Tag newTag = null;
 
             try
             {
+                // ... (OSTATAK TVOG KODA OSTJE ISTI ZA KREIRANJE OBJEKATA I TRY/CATCH) ...
                 if (selectedType == "AI")
                 {
                     if (!double.TryParse(txtScanTime.Text, out double scanTime) || scanTime <= 0)
@@ -175,6 +226,7 @@ namespace ScadaGUI
                 }
                 else if (selectedType == "AO")
                 {
+                    // Ostatak validacije za AO...
                     if (!double.TryParse(txtLowLimit.Text, out double lowLimit))
                     {
                         txtErrorBlock.Text = "Donja granica (Low Limit) mora biti broj.";
@@ -204,6 +256,7 @@ namespace ScadaGUI
                 }
                 else if (selectedType == "DI")
                 {
+                    // Ostatak validacije za DI...
                     if (!double.TryParse(txtScanTime.Text, out double scanTime) || scanTime <= 0)
                     {
                         txtErrorBlock.Text = "Vreme skeniranja (Scan Time) mora biti pozitivan broj.";
@@ -221,6 +274,7 @@ namespace ScadaGUI
                 }
                 else if (selectedType == "DO")
                 {
+                    // Ostatak validacije za DO...
                     if (!double.TryParse(txtInitialValue.Text, out double initValue) || (initValue != 0 && initValue != 1))
                     {
                         txtErrorBlock.Text = "Početna vrednost digitalnog izlaza mora biti 0 ili 1.";

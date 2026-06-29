@@ -85,7 +85,7 @@
         </Grid>
 
         <Border Grid.Row="1" CornerRadius="8" BorderBrush="#E5E7EB" BorderThickness="1" Background="White" Margin="0,0,0,20">
-            <DataGrid x:Name="dataGridTags" AutoGenerateColumns="True" 
+            <DataGrid x:Name="dataGridTags" AutoGenerateColumns="False" 
                       IsReadOnly="True" SelectionMode="Single" Margin="10" BorderThickness="0">
                 <DataGrid.RowStyle>
                     <Style TargetType="DataGridRow">
@@ -103,6 +103,23 @@
                         </Style.Triggers>
                     </Style>
                 </DataGrid.RowStyle>
+
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Tag Name (ID)" Binding="{Binding Name}" Width="1.5*"/>
+
+                    <DataGridTextColumn Header="Tip" Binding="{Binding TagType}" Width="60">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="FontWeight" Value="Bold"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+
+                    <DataGridTextColumn Header="Status Alarma" Binding="{Binding AlarmStatus}" Width="1.2*"/>
+                    <DataGridTextColumn Header="I/O Adresa" Binding="{Binding IOAddress}" Width="*"/>
+                    <DataGridTextColumn Header="Opis" Binding="{Binding Description}" Width="2.5*"/>
+                </DataGrid.Columns>
+
             </DataGrid>
         </Border>
 
@@ -114,18 +131,23 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0" Orientation="Horizontal">
-                <Button Style="{StaticResource PrimaryButton}" Content="Dodaj tag" Click="AddTag_Click" Height="36" Width="140" Margin="0,0,10,0"/>
-                <Button Style="{StaticResource ModernButton}" Content="Ukloni izabrani tag" Click="RemoveTag_Click" Height="36" Width="140"/>
+                <Button Style="{StaticResource PrimaryButton}" Content="Dodaj tag" Click="AddTag_Click" Height="36" Width="90" Margin="0,0,5,0"/>
+                <Button Style="{StaticResource ModernButton}" Content="Ukloni tag" Click="RemoveTag_Click" Height="36" Width="90" Margin="0,0,15,0"/>
+
+                <TextBox x:Name="txtManualValue" Width="60" Height="36" Margin="0,0,5,0" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                <Button Style="{StaticResource PrimaryButton}" Content="Upiši vrednost" Click="WriteValue_Click" Height="36" Width="100"/>
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
-                <Button Style="{StaticResource PrimaryButton}" Content="Dodaj alarm" Click="AddAlarm_Click" Height="36" Width="140" Margin="0,0,10,0"/>
-                <Button Style="{StaticResource ModernButton}" Content="Potvrdi alarm (ACK)" Click="AcknowledgeAlarm_Click" Height="36" Width="150"/>
+                <Button Style="{StaticResource PrimaryButton}" Content="Dodaj alarm" Click="AddAlarm_Click" Height="36" Width="100" Margin="0,0,5,0"/>
+                <Button Style="{StaticResource ModernButton}" Content="Potvrdi (ACK)" Click="AcknowledgeAlarm_Click" Height="36" Width="100" Margin="0,0,5,0"/>
+
+                <Button Style="{StaticResource ModernButton}" Content="Detalji o AI" Click="ShowDetails_Click" Height="36" Width="100"/>
             </StackPanel>
 
             <StackPanel Grid.Column="2" Orientation="Horizontal">
-                <Button Style="{StaticResource ModernButton}" Content="Export (JSON)" Click="ExportJson_Click" Height="36" Width="120" Margin="0,0,10,0"/>
-                <Button Style="{StaticResource ModernButton}" Content="Import (JSON)" Click="ImportJson_Click" Height="36" Width="120"/>
+                <Button Style="{StaticResource ModernButton}" Content="Export (JSON)" Click="ExportJson_Click" Height="36" Width="100" Margin="0,0,5,0"/>
+                <Button Style="{StaticResource ModernButton}" Content="Import (JSON)" Click="ImportJson_Click" Height="36" Width="100"/>
             </StackPanel>
         </Grid>
     </Grid>

@@ -6,11 +6,11 @@
         <StackPanel>
             <TextBlock Text="Izaberite događaje za logovanje:" FontWeight="Bold" Margin="0,0,0,10"/>
 
-            <CheckBox x:Name="chkAppStart" Content="Pokretanje aplikacije (Bit 0)" Margin="0,5"/>
-            <CheckBox x:Name="chkAlarms" Content="Aktivacija/ACK Alarma (Bit 1)" Margin="0,5"/>
-            <CheckBox x:Name="chkTagManagement" Content="Dodavanje/Brisanje Tagova (Bit 2)" Margin="0,5"/>
-            <CheckBox x:Name="chkImportExport" Content="Import/Export JSON (Bit 3)" Margin="0,5"/>
-            <CheckBox x:Name="chkErrors" Content="Greške i Izuzeci (Bit 4)" Margin="0,5"/>
+            <CheckBox x:Name="chkAppStart" Content="Pokretanje aplikacije" Margin="0,5"/>
+            <CheckBox x:Name="chkAlarms" Content="Aktivacija/ACK Alarma" Margin="0,5"/>
+            <CheckBox x:Name="chkTagManagement" Content="Dodavanje/Brisanje Tagova" Margin="0,5"/>
+            <CheckBox x:Name="chkImportExport" Content="Import/Export JSON" Margin="0,5"/>
+            <CheckBox x:Name="chkErrors" Content="Greške i Izuzeci" Margin="0,5"/>
 
             <Button Content="Sačuvaj TraceWord" Width="130" Height="30" Margin="0,15,0,0" 
                     Background="#FF1B75BC" Foreground="White" FontWeight="Bold" Click="Save_Click"/>

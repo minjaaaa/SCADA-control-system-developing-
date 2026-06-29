@@ -1,0 +1,48 @@
+[
+  {
+    "$type": "DataConcentrator.Model.AnalogInput, DataConcentrator",
+    "ScanTime": 2.0,
+    "IsScanOn": true,
+    "LowLimit": 0.0,
+    "HighLimit": 500.0,
+    "Units": "cm",
+    "Deadband": 2.0,
+    "Hysteresis": 5.0,
+    "Name": "Nivo_Rezervoara_A",
+    "AlarmStatus": "Normal",
+    "Description": "Nivo vode u glavnom rezervoaru",
+    "IOAddress": "ADDR001"
+  },
+  {
+    "$type": "DataConcentrator.Model.AnalogInput, DataConcentrator",
+    "ScanTime": 1.5,
+    "IsScanOn": true,
+    "LowLimit": 10.0,
+    "HighLimit": 120.0,
+    "Units": "C",
+    "Deadband": 1.0,
+    "Hysteresis": 2.0,
+    "Name": "Temp_Motora_Pumpe",
+    "AlarmStatus": "Normal",
+    "Description": "Temperatura namotaja motora",
+    "IOAddress": "ADDR002"
+  },
+  {
+    "$type": "DataConcentrator.Model.DigitalInput, DataConcentrator",
+    "ScanTime": 0.5,
+    "IsScanOn": true,
+    "Name": "Status_Vrata_Kucista",
+    "AlarmStatus": "Normal",
+    "Description": "Senzor otvaranja glavnog ormara",
+    "IOAddress": "ADDR009"
+  },
+  {
+    "$type": "DataConcentrator.Model.DigitalInput, DataConcentrator",
+    "ScanTime": 0.5,
+    "IsScanOn": true,
+    "Name": "Status_Pumpe_On",
+    "AlarmStatus": "Normal",
+    "Description": "Povratna informacija o radu pumpe",
+    "IOAddress": "ADDR011"
+  }
+]

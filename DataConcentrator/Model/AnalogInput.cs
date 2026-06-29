@@ -28,7 +28,7 @@ namespace DataConcentrator.Model
         public double Hysteresis { get { return hysteresis; } set { hysteresis = value; OnPropertyChanged("Hysteresis"); } }
 
         // Alarmi ce biti dodati kasnije kada napravimo klasu Alarm
-        public event Action<string> AlarmActivated;
+        public event Action<Alarm, double, string> AlarmActivated;
 
         private bool keepScanning;
 
@@ -98,11 +98,11 @@ namespace DataConcentrator.Model
                 {
                     if (alarm.Type == AlarmType.HIGH && currentValue > alarm.Limit)
                     {
-                        AlarmActivated?.Invoke(alarm.Name);
+                        AlarmActivated?.Invoke(alarm, currentValue, this.Units);
                     }
                     else if (alarm.Type == AlarmType.LOW && currentValue < alarm.Limit)
                     {
-                        AlarmActivated?.Invoke(alarm.Name);
+                        AlarmActivated?.Invoke(alarm, currentValue, this.Units);
                     }
                 }
 

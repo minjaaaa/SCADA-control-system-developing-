@@ -1,0 +1,11 @@
+[
+ {
+    "$type": "DataConcentrator.Model.DigitalInput, DataConcentrator",
+    "ScanTime": 0.5,
+    "IsScanOn": true,
+    "Name": "Status_Pumpe_On",
+    "AlarmStatus": "Normal",
+    "Description": "Povratna informacija o radu pumpe",
+    "IOAddress": "ADDR011"
+  }
+]

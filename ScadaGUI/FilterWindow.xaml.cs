@@ -113,26 +113,51 @@ namespace ScadaGUI
 
             try
             {
-                string filePath = "Izvestaj_Tagova.txt";
-                StringBuilder sb = new StringBuilder();
+                // NOVO: Preuzimamo sve AI tagove u memoriju kako bismo znali njihove limite
+                var aiTags = ContextClass.Instance.Tags.OfType<AnalogInput>().ToDictionary(t => t.Name);
+                var specialReportRecords = new List<TagValue>();
 
-                sb.AppendLine("=== IZVEŠTAJ SCADA SISTEMA ===");
+                // NOVO: Primena filtera iz specifikacije: (HighLimit + LowLimit) / 2 +/- 5
+                foreach (var record in filteredResults)
+                {
+                    if (aiTags.TryGetValue(record.TagName, out AnalogInput ai))
+                    {
+                        double midValue = (ai.HighLimit + ai.LowLimit) / 2.0;
+                        double lowerBound = midValue - 5.0;
+                        double upperBound = midValue + 5.0;
+
+                        if (record.Value >= lowerBound && record.Value <= upperBound)
+                        {
+                            specialReportRecords.Add(record);
+                        }
+                    }
+                }
+
+                if (specialReportRecords.Count == 0)
+                {
+                    MessageBox.Show("Nijedan očitani podatak ne ispunjava uslov iz specifikacije: Vrednost mora biti (High + Low)/2 ± 5.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                string filePath = "Izvestaj_Tagova.txt";
+                System.Text.StringBuilder sb = new System.Text.StringBuilder();
+
+                sb.AppendLine("=== SPECIJALNI IZVEŠTAJ SCADA SISTEMA ===");
+                sb.AppendLine("Kriterijum: Vrednost upada u (High + Low)/2 ± 5");
                 sb.AppendLine($"Datum generisanja: {DateTime.Now}");
                 sb.AppendLine("---------------------------------------------------------");
                 sb.AppendLine("TAG NAME\t|\tVREME\t\t\t|\tVREDNOST");
                 sb.AppendLine("---------------------------------------------------------");
 
-                foreach (var record in filteredResults)
+                foreach (var record in specialReportRecords)
                 {
                     sb.AppendLine($"{record.TagName}\t|\t{record.Timestamp}\t|\t{record.Value}");
                 }
 
-                File.WriteAllText(filePath, sb.ToString());
+                System.IO.File.WriteAllText(filePath, sb.ToString());
 
-                // Javljamo korisniku i pravimo log (ako je Logger klasa implementirana)
-                MessageBox.Show($"Izveštaj je uspešno sačuvan u fajl: {filePath}\n(Fajl se nalazi u bin/Debug folderu projekta)", "Uspeh", MessageBoxButton.OK, MessageBoxImage.Information);
-
-                Logger.Log("Korisnik je generisao TXT izveštaj sa " + filteredResults.Count + " redova.", LogCategory.ImportExport);
+                MessageBox.Show($"Izveštaj sa {specialReportRecords.Count} redova je uspešno sačuvan u fajl: {filePath}\n(Fajl se nalazi u bin/Debug folderu projekta)", "Uspeh", MessageBoxButton.OK, MessageBoxImage.Information);
+                Logger.Log($"Generisan specijalni TXT izveštaj sa {specialReportRecords.Count} redova.", LogCategory.ImportExport);
             }
             catch (Exception ex)
             {
