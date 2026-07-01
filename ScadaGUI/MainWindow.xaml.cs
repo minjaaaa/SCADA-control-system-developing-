@@ -152,44 +152,54 @@ namespace ScadaGUI
             // Proveravamo da li je selektovan tag i da li je taj tag tipa AnalogInput
             if (dataGridTags.SelectedItem is AnalogInput ai)
             {
-                // Pronalazimo sve alarme vezane za ovaj tag
-                var connectedAlarmNames = ContextClass.Instance.Alarms
-                    .Where(a => a.TagName == ai.Name)
-                    .Select(a => a.Name).ToList();
-
-                // Pronalazimo sve aktivirane instance tih alarma koje su trenutno u stanju 'Active'
-                var activeAlarms = ContextClass.Instance.ActivatedAlarms
-                    .Where(aa => connectedAlarmNames.Contains(aa.AlarmName) && aa.State == AlarmState.Active)
-                    .ToList();
-
-                if (activeAlarms.Count > 0)
+                // 1. GLAVNA PROVERA: Da li je sam TAG trenutno u crvenom alarmu?
+                if (ai.AlarmStatus == "Active")
                 {
-                    // Menjamo im stanje u Acknowledged
+                    // Odmah menjamo status taga u Acknowledged (Ovo će prebojiti red u žuto)
+                    ai.AlarmStatus = "Acknowledged";
+
+                    // 2. Ažuriramo istoriju alarma u bazi (ActivatedAlarms tabela) ako postoji
+                    var connectedAlarmNames = ContextClass.Instance.Alarms
+                        .Where(a => a.TagName == ai.Name)
+                        .Select(a => a.Name).ToList();
+
+                    var activeAlarms = ContextClass.Instance.ActivatedAlarms
+                        .Where(aa => connectedAlarmNames.Contains(aa.AlarmName) && aa.State == AlarmState.Active)
+                        .ToList();
+
+                    // Ako ih ima u istoriji, menjamo i njima stanje
                     foreach (var aa in activeAlarms)
                     {
                         aa.State = AlarmState.Acknowledged;
                     }
 
+                    // 3. Čuvamo sve promene u bazi
                     ContextClass.Instance.SaveChanges();
-                    
-                    MessageBox.Show($"Status u bazi je sada: {ai.AlarmStatus}"); // <--- DODAJ OVO
-                    // --- KLJUČNO: Ovde resetujemo zastavicu da bi sistem opet znao da prikaže prozor sledeći put ---
+
+                    // 4. RESETUJEMO ZASTAVICU PROZORA! 
+                    // (Ovo omogućava da iskoči pop-up sledeći put kada vrednost padne u normalu pa opet poraste)
                     prikazaniProzori.Remove(ai.Name);
 
-                    Logger.Log($"Alarm potvrđen: {ai.Name}", LogCategory.Alarms);
+                    Logger.Log($"Alarm potvrđen za tag: {ai.Name}", LogCategory.Alarms);
 
-                    RefreshDataGrid(); // Ovo će automatski prebojiti red u žuto!
+                    // 5. Nasilno osvežavanje DataGrid-a da bi sigurno povukao novu (žutu) boju
+                    dataGridTags.ItemsSource = null;
+                    dataGridTags.ItemsSource = ContextClass.Instance.Tags.ToList();
 
-                    MessageBox.Show("Alarm je uspešno potvrđen (Acknowledged).", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show("Alarm je uspešno potvrđen (Acknowledged).", "Uspeh", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else if (ai.AlarmStatus == "Acknowledged")
+                {
+                    MessageBox.Show("Alarm na ovom tagu je VEĆ potvrđen.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 else
                 {
-                    MessageBox.Show("Ovaj tag trenutno nema aktivnih (nepotvrđenih) alarma.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show("Ovaj tag je u NORMALNOM stanju i nema aktivnih alarma za potvrdu.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
             else
             {
-                MessageBox.Show("Molimo vas da iz tabele izaberete analogni ulaz (AI) koji ima aktivan alarm.", "Upozorenje", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("Molimo vas da iz tabele izaberete analogni ulaz (AI) koji je u alarmu.", "Upozorenje", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
         // --- ORIGINALNI KOSTUR KOJI SE BAVI NIKOVANJEM I ALARMIMA ---
@@ -217,40 +227,50 @@ namespace ScadaGUI
              ContextClass.Instance.Dispose();
         }
 
-        // OVO OTKOMENTARIŠEMO KADA DODAMO Alarm i ActivatedAlarm KLASE
         private void OnAlarmActivated(Alarm triggeredAlarm, double currentValue, string units)
         {
             Application.Current.Dispatcher.BeginInvoke((Action)(() =>
             {
-                bool trebaProzor = false;
+                bool prikažiProzor = false;
 
+                // 1. ODMAH ZAKLJUČAVAMO I UPISUJEMO STATUS U BAZU
                 lock (ContextClass.Instance)
                 {
                     var tag = ContextClass.Instance.Tags.FirstOrDefault(t => t.Name == triggeredAlarm.TagName);
 
-                    // 1. Ako je status "Normal", postavljamo na "Active" i beležimo da treba prikazati prozor
-                    if (tag != null && tag.AlarmStatus == "Normal")
+                    // Ako je tag pronađen i u normalnom je stanju (ili je status null/prazan pri kreiranju)
+                    if (tag != null && (tag.AlarmStatus == "Normal" || string.IsNullOrEmpty(tag.AlarmStatus)))
                     {
                         tag.AlarmStatus = "Active";
-                        ContextClass.Instance.SaveChanges();
-                        trebaProzor = true;
+                        ContextClass.Instance.SaveChanges(); // Odmah upisujemo u bazu!
+                        prikažiProzor = true;
                     }
                 }
 
-                // 2. Ako je "Normal" postao "Active", prikazujemo prozor, ali samo ako ga već nismo prikazali u ovoj sesiji
-                if (trebaProzor && !prikazaniProzori.Contains(triggeredAlarm.TagName))
+                // 2. AKO JE STATUS USPEŠNO PROMENJEN U "ACTIVE"
+                if (prikažiProzor)
                 {
-                    prikazaniProzori.Add(triggeredAlarm.TagName); // Zapamti da je prozor viđen
+                    // Prvo proveravamo našu memorijsku listu otvorenih popup-ova da sprečimo dupliranje
+                    if (!prikazaniProzori.Contains(triggeredAlarm.TagName))
+                    {
+                        prikazaniProzori.Add(triggeredAlarm.TagName); // Blokiramo sledeće brze prozore
 
-                    RefreshDataGrid();
-                    Logger.Log($"Alarm aktiviran: {triggeredAlarm.TagName} (Vrednost: {currentValue:F2} {units})", LogCategory.Alarms);
+                        // 3. ODMAH OSVEŽAVAMO TABELU (Vrsta postaje crvena NA EKRANU pre nego što iskoči prozor!)
+                        dataGridTags.ItemsSource = null;
+                        dataGridTags.ItemsSource = ContextClass.Instance.Tags.ToList();
+                        RefreshDataGrid();
 
-                    string upozorenje = $"🚨 KRITIČNO UPOZORENJE: ALARM AKTIVIRAN! 🚨\n\n" +
-                                        $"Senzor: {triggeredAlarm.TagName}\n" +
-                                        $"Trenutna vrednost: {currentValue:F2} {units}\n\n" +
-                                        $"Pritisnite OK da zatvorite ovo obaveštenje.";
+                        Logger.Log($"Alarm aktiviran: {triggeredAlarm.TagName} (Vrednost: {currentValue:F2} {units})", LogCategory.Alarms);
 
-                    MessageBox.Show(upozorenje, "SCADA Alarmni Sistem", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        // 4. TEK SADA PRIKAZUJEMO PROZOR 
+                        // Tabela iza prozora je već crvena i spremna za ACK čim se prozor zatvori
+                        string upozorenje = $"🚨 KRITIČNO UPOZORENJE: ALARM AKTIVIRAN! 🚨\n\n" +
+                                            $"Senzor: {triggeredAlarm.TagName}\n" +
+                                            $"Trenutna vrednost: {currentValue:F2} {units}\n\n" +
+                                            $"Pritisnite OK da zatvorite ovo obaveštenje, a zatim potvrdite alarm na ACK dugme.";
+
+                        MessageBox.Show(upozorenje, "SCADA Alarmni Sistem", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
                 }
             }));
         }
